@@ -121,6 +121,41 @@
       50% { box-shadow: 0 0 40px 20px #f472b6; }
       100% { box-shadow: 0 0 0 0 #f472b6; }
     }
+    /* Joystick CSS */
+    #joystick-container {
+      width: 100vw;
+      max-width: 700px;
+      margin: 0 auto 12px auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+    #joystick-bg {
+      width: 90px;
+      height: 90px;
+      background: radial-gradient(circle at 50% 50%, #e0e7ff 60%, #60a5fa 100%);
+      border: 2.5px solid #2563eb;
+      border-radius: 50%;
+      position: relative;
+      box-shadow: 0 2px 12px #2563eb33;
+      touch-action: none;
+    }
+    #joystick-stick {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #f472b6 0%, #2563eb 100%);
+      border-radius: 50%;
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-50%,-50%);
+      box-shadow: 0 2px 8px #9333ea55;
+      transition: all 0.2s;
+      border: 2px solid #a21caf;
+    }
+    @media (min-width: 801px) {
+      #joystick-container { display: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -149,17 +184,10 @@
       <div style="font-size:16px; color:#888; margin-top:18px;">Kısayol: Enter</div>
     </div>
   </div>
-  <div id="mobile-controls">
-    <div class="mc-row">
-      <div class="mc-btn" data-dir="up">▲</div>
-    </div>
-    <div class="mc-row">
-      <div class="mc-btn" data-dir="left">◀</div>
-      <div style="width:48px;"></div>
-      <div class="mc-btn" data-dir="right">▶</div>
-    </div>
-    <div class="mc-row">
-      <div class="mc-btn" data-dir="down">▼</div>
+  <!-- Mobil joystick kontrolü (footer'ın hemen üstünde) -->
+  <div id="joystick-container" style="display:none;">
+    <div id="joystick-bg">
+      <div id="joystick-stick"></div>
     </div>
   </div>
   <script>
@@ -599,6 +627,77 @@
       - Her 10 puanda kısa bir parlama animasyonu olur.
       - Kod fonksiyonlara ayrılmış, açıklamalıdır.
     */
+
+    // --- Mobil Joystick Kontrolü ---
+    // Eski mobil tuşları kaldırıldı
+
+    // Joystick sadece mobilde gösterilsin
+    function isMobile() {
+      return window.innerWidth <= 800 || /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+    }
+    function toggleJoystick() {
+      const jc = document.getElementById("joystick-container");
+      jc.style.display = isMobile() ? "flex" : "none";
+    }
+    window.addEventListener("resize", toggleJoystick);
+    toggleJoystick();
+
+    // Joystick hareketlerini yılan yönüne çevir
+    let joystickActive = false, joyStart = null;
+    const joyBg = document.getElementById("joystick-bg");
+    const joyStick = document.getElementById("joystick-stick");
+    let joyCenter = {x:0, y:0};
+
+    function getJoyDir(dx, dy) {
+      if (Math.abs(dx) > Math.abs(dy)) {
+        return dx > 0 ? "right" : "left";
+      } else {
+        return dy > 0 ? "down" : "up";
+      }
+    }
+
+    function joyStartHandler(e) {
+      joystickActive = true;
+      const rect = joyBg.getBoundingClientRect();
+      joyCenter = {x: rect.left + rect.width/2, y: rect.top + rect.height/2};
+      joyStick.style.transition = "none";
+      joyStick.style.left = "50%";
+      joyStick.style.top = "50%";
+      joyStick.style.transform = "translate(-50%,-50%)";
+      joyStart = e.touches ? e.touches[0] : e;
+      document.addEventListener(e.type === "touchstart" ? "touchmove" : "mousemove", joyMoveHandler);
+      document.addEventListener(e.type === "touchstart" ? "touchend" : "mouseup", joyEndHandler);
+    }
+    function joyMoveHandler(e) {
+      if (!joystickActive) return;
+      const evt = e.touches ? e.touches[0] : e;
+      let dx = evt.clientX - joyCenter.x;
+      let dy = evt.clientY - joyCenter.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const maxDist = 40;
+      if (dist > maxDist) {
+        dx = dx * maxDist / dist;
+        dy = dy * maxDist / dist;
+      }
+      joyStick.style.left = (50 + dx/joyBg.offsetWidth*100) + "%";
+      joyStick.style.top = (50 + dy/joyBg.offsetHeight*100) + "%";
+      joyStick.style.transform = "translate(-50%,-50%)";
+      // Yön değişikliği
+      if (dist > 20) {
+        handleDirection(getJoyDir(dx, dy));
+      }
+    }
+    function joyEndHandler(e) {
+      joystickActive = false;
+      joyStick.style.transition = "all 0.2s";
+      joyStick.style.left = "50%";
+      joyStick.style.top = "50%";
+      joyStick.style.transform = "translate(-50%,-50%)";
+      document.removeEventListener(e.type === "touchend" ? "touchmove" : "mousemove", joyMoveHandler);
+      document.removeEventListener(e.type === "touchend" ? "touchend" : "mouseup", joyEndHandler);
+    }
+    joyBg.addEventListener("touchstart", joyStartHandler);
+    joyBg.addEventListener("mousedown", joyStartHandler);
   </script>
 </body>
 <footer style="width:100vw;max-width:700px;margin:32px auto 0 auto;display:flex;justify-content:center;align-items:center;">
