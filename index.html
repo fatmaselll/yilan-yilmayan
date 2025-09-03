@@ -170,7 +170,7 @@
   <div id="game-container">
     <canvas id="game" width="600" height="600"></canvas>
     <div id="start-overlay" class="overlay">
-      <div style="font-family: cursive; color: #34256c; font-size: xx-large;" >Yılan Oyunu 🐍<br><span style="font-size:18px; color:#140909;">Ama sen yılma ehehehehe</span></div>
+      <div style="font-family:monospace; color: #34256c; font-size: xx-large;" >Yılan Oyunu 🐍<br><span style="font-size:18px; color:#140909;">Ama sen yılma ehehehehe</span></div>
       <button id="start-btn">Başla</button>
       <div style="font-size:16px; color:#3a12ce; margin-top:18px;"><br> BU OYUNDA KEDİ KURALLARI AKTİFTİR  <br> </div>
     </div>
@@ -606,9 +606,13 @@
     function resizeCanvas() {
       // Container'ın genişliğine göre canvas boyutunu ayarla
       const container = document.getElementById("game-container");
+      // Mobilde ekranın %96'sı, yükseklikten taşmaması için min al
       let size = Math.min(window.innerWidth * 0.96, 700, window.innerHeight * 0.7);
+      // Mobilde çok küçük ekranlarda minimum 240px
+      if (size < 240) size = 240;
       container.style.width = size + "px";
       container.style.height = size + "px";
+      canvas.width = canvas.height = CANVAS_SIZE; // Oyun grid boyutu sabit
       canvas.style.width = size + "px";
       canvas.style.height = size + "px";
     }
@@ -629,10 +633,8 @@
     */
 
     // --- Mobil Joystick Kontrolü ---
-    // Eski mobil tuşları kaldırıldı
-
-    // Joystick sadece mobilde gösterilsin
     function isMobile() {
+      // Ekran genişliği veya userAgent ile mobil tespiti
       return window.innerWidth <= 800 || /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
     }
     function toggleJoystick() {
@@ -640,6 +642,7 @@
       jc.style.display = isMobile() ? "flex" : "none";
     }
     window.addEventListener("resize", toggleJoystick);
+    window.addEventListener("orientationchange", toggleJoystick);
     toggleJoystick();
 
     // Joystick hareketlerini yılan yönüne çevir
@@ -656,7 +659,10 @@
       }
     }
 
+    // --- Joystick Event Handler'ları ---
     function joyStartHandler(e) {
+      // Sadece bir tür olay dinle (touch veya mouse)
+      if (joystickActive) return;
       joystickActive = true;
       const rect = joyBg.getBoundingClientRect();
       joyCenter = {x: rect.left + rect.width/2, y: rect.top + rect.height/2};
@@ -665,12 +671,22 @@
       joyStick.style.top = "50%";
       joyStick.style.transform = "translate(-50%,-50%)";
       joyStart = e.touches ? e.touches[0] : e;
-      document.addEventListener(e.type === "touchstart" ? "touchmove" : "mousemove", joyMoveHandler);
-      document.addEventListener(e.type === "touchstart" ? "touchend" : "mouseup", joyEndHandler);
+      if (e.type === "touchstart") {
+        document.addEventListener("touchmove", joyMoveHandler, {passive:false});
+        document.addEventListener("touchend", joyEndHandler, {passive:false});
+      } else {
+        document.addEventListener("mousemove", joyMoveHandler);
+        document.addEventListener("mouseup", joyEndHandler);
+      }
     }
     function joyMoveHandler(e) {
       if (!joystickActive) return;
-      const evt = e.touches ? e.touches[0] : e;
+      let evt;
+      if (e.touches) {
+        evt = e.touches[0];
+      } else {
+        evt = e;
+      }
       let dx = evt.clientX - joyCenter.x;
       let dy = evt.clientY - joyCenter.y;
       const dist = Math.sqrt(dx*dx + dy*dy);
@@ -686,6 +702,7 @@
       if (dist > 20) {
         handleDirection(getJoyDir(dx, dy));
       }
+      if (e.cancelable) e.preventDefault();
     }
     function joyEndHandler(e) {
       joystickActive = false;
@@ -693,10 +710,16 @@
       joyStick.style.left = "50%";
       joyStick.style.top = "50%";
       joyStick.style.transform = "translate(-50%,-50%)";
-      document.removeEventListener(e.type === "touchend" ? "touchmove" : "mousemove", joyMoveHandler);
-      document.removeEventListener(e.type === "touchend" ? "touchend" : "mouseup", joyEndHandler);
+      if (e.type === "touchend") {
+        document.removeEventListener("touchmove", joyMoveHandler, {passive:false});
+        document.removeEventListener("touchend", joyEndHandler, {passive:false});
+      } else {
+        document.removeEventListener("mousemove", joyMoveHandler);
+        document.removeEventListener("mouseup", joyEndHandler);
+      }
     }
-    joyBg.addEventListener("touchstart", joyStartHandler);
+    // Olayları sadece bir kez ekle
+    joyBg.addEventListener("touchstart", joyStartHandler, {passive:false});
     joyBg.addEventListener("mousedown", joyStartHandler);
   </script>
 </body>
